@@ -21,14 +21,16 @@ public class ContextMenu extends PopupPanel {
     /** 
      * Add a MenuItem with the GWT-Links style.
      */
-    public MenuItem addItem(MenuItem item) {
-        item.addStyleName(LinksClientBundle.INSTANCE.css().connectionPopupItem());
+    public MenuItem addItem(MenuItem item, boolean cssStyle) {
+    	if(cssStyle){    		
+    		item.addStyleName(LinksClientBundle.INSTANCE.css().connectionPopupItem());
+    	}
         return menu.addItem(item);
     }
 
-    public MenuItem addItem(String text, Command command) {
+    public MenuItem addItem(String text, Command command, boolean cssStyle) {
         MenuItem item = new MenuItem(text, command);
-        return addItem(item);
+        return addItem(item,cssStyle);
     }
     
     /**

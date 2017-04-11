@@ -22,6 +22,7 @@ public class TieLinkEvent extends GwtEvent<TieLinkHandler>{
 		this.setStartWidget(startWidget);
 		this.setEndWidget(endWidget);
 		this.setConnection(c);
+		
 	}
 	
 	private static Type<TieLinkHandler> TYPE;

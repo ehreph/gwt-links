@@ -1,31 +1,34 @@
 package com.orange.links.client.canvas;
 
+import com.google.gwt.canvas.client.Canvas;
 import com.google.gwt.canvas.dom.client.CssColor;
+import com.google.gwt.user.client.Element;
 import com.google.gwt.dom.client.Style.Position;
 import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.event.dom.client.DomEvent.Type;
 import com.google.gwt.event.shared.EventHandler;
 import com.google.gwt.event.shared.HandlerRegistration;
-import com.google.gwt.user.client.Element;
 import com.google.gwt.user.client.ui.Widget;
-import com.google.gwt.widgetideas.graphics.client.Color;
-import com.google.gwt.widgetideas.graphics.client.GWTCanvas;
 
 public class MultiBrowserDiagramCanvas implements DiagramCanvas{
 
 	protected int width;
 	protected int height;
-	private GWTCanvas canvas;
+	private Canvas canvas;
 	
-	public MultiBrowserDiagramCanvas(int width, int height){
+	public MultiBrowserDiagramCanvas(int width, int height, Canvas context){
+		
 		this.width = width;
 		this.height = height;
-		this.canvas = new GWTCanvas();
+		this.canvas = context;
+		
 		setBackground();
 		getElement().getStyle().setPosition(Position.ABSOLUTE);
 		getElement().getStyle().setWidth(width, Unit.PX);
 		getElement().getStyle().setHeight(height, Unit.PX);
-		canvas.setCoordSize(width, height);
+		
+		canvas.setCoordinateSpaceHeight(height);
+		canvas.setCoordinateSpaceWidth(width);
 	}
 	
 	@Override
@@ -72,18 +75,18 @@ public class MultiBrowserDiagramCanvas implements DiagramCanvas{
 
 	@Override
 	public void setStrokeStyle(String color) {
-		canvas.setStrokeStyle(new Color(color));
+		canvas.getContext2d().setStrokeStyle(color);
 	}
 
 	@Override
 	public void setFillStyle(String color) {
-		canvas.setFillStyle(new Color(color));
+		canvas.getContext2d().setFillStyle(color);
 	}
 
 
 	@Override
 	public void clear() {
-		canvas.clear();
+		canvas.getContext2d().clearRect(0,0, canvas.getOffsetWidth(), canvas.getOffsetWidth());	
 	}
 
 	@Override
@@ -99,53 +102,53 @@ public class MultiBrowserDiagramCanvas implements DiagramCanvas{
 
 	@Override
 	public void beginPath() {
-		canvas.beginPath();
+		canvas.getContext2d().beginPath();
 	}
 
 	@Override
 	public void closePath() {
-		canvas.closePath();
+		canvas.getContext2d().closePath();
 	}
 
 	@Override
 	public void lineTo(double x, double y) {
-		canvas.lineTo(x, y);
+		canvas.getContext2d().lineTo(x, y);
 	}
 
 	@Override
 	public void moveTo(double x, double y) {
-		canvas.moveTo(x, y);
+		canvas.getContext2d().moveTo(x, y);
 	}
 
 	@Override
 	public void fillRect(double x, double y, double w, double h) {
-		canvas.fillRect(x, y, w, h);
+		canvas.getContext2d().fillRect(x, y, w, h);
 	}
 
 	@Override
 	public void stroke() {
-		canvas.stroke();
+		canvas.getContext2d().stroke();
 	}
 
 	@Override
 	public void arc(double x, double y, double radius, double startAngle,
 			double endAngle, boolean anticlockwise) {
-		canvas.arc(x, y, radius, startAngle, endAngle, anticlockwise);
+		canvas.getContext2d().arc(x, y, radius, startAngle, endAngle, anticlockwise);
 	}
 
 	@Override
 	public void fill() {
-		canvas.fill();
+		canvas.getContext2d().fill();
 	}
 
 	@Override
 	public void bezierCurveTo(double cpx, double cpy, double x, double y) {
-		canvas.cubicCurveTo(cpx, cpy, cpx, cpy, x, y);
+		canvas.getContext2d().bezierCurveTo(cpx, cpy, cpx, cpy, x, y);
 	}
 
 	@Override
     public void setGlobalAlpha(double alpha) {
-        canvas.setGlobalAlpha(alpha);
+		canvas.getContext2d().setGlobalAlpha(alpha);
     }
 
 }

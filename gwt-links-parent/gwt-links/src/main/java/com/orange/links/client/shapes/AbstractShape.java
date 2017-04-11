@@ -2,7 +2,7 @@ package com.orange.links.client.shapes;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.user.client.DOM;
-import com.google.gwt.user.client.Element;
+import  com.google.gwt.dom.client.Element;
 import com.google.gwt.user.client.ui.Widget;
 import com.orange.links.client.DiagramController;
 import com.orange.links.client.connection.Connection;
@@ -58,7 +58,8 @@ public abstract class AbstractShape implements Shape {
             		GWT.log("Scroll left detected : " + scrollLeft);
             	}
             	if (containerFinder.isContainer(parent)) {
-                    containerOffsetLeft = DOM.getAbsoluteLeft(parent) - scrollLeft;
+                  //  containerOffsetLeft = DOM.getAbsoluteLeft(parent) - scrollLeft;
+                    containerOffsetLeft= parent.getAbsoluteLeft()-scrollLeft;
                 }
                 parent = DOM.getParent(parent);
             }
@@ -81,7 +82,8 @@ public abstract class AbstractShape implements Shape {
             		GWT.log("Scroll Top detected : " + scrollTop);
             	}
             	if (containerFinder.isContainer(parent)) {
-                    containerOffsetTop = DOM.getAbsoluteTop(parent) - scrollTop;
+                    //containerOffsetTop = DOM.getAbsoluteTop(parent) - scrollTop;
+                    containerOffsetTop= parent.getAbsoluteTop()-scrollTop;
                 }
                 parent = DOM.getParent(parent);
             }

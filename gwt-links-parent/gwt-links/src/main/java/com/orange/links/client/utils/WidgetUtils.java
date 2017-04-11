@@ -1,7 +1,8 @@
 package com.orange.links.client.utils;
 
+import com.google.gwt.dom.client.Element;
 import com.google.gwt.user.client.DOM;
-import com.google.gwt.user.client.Element;
+
 import com.google.gwt.user.client.ui.Widget;
 
 public class WidgetUtils {
@@ -13,7 +14,7 @@ public class WidgetUtils {
 		Element parent = DOM.getParent(widget.getElement());
 		while( parent!=null ){
 			if( containerFinder.isContainer(parent) ){
-				containerOffset = DOM.getAbsoluteLeft(parent);
+				containerOffset = parent.getAbsoluteLeft();
 				break;
 			}
 			parent = DOM.getParent(parent);
@@ -26,7 +27,7 @@ public class WidgetUtils {
 		Element parent = DOM.getParent(widget.getElement());
 		while( parent!=null ){
 			if( containerFinder.isContainer(parent) ){
-				containerOffset = DOM.getAbsoluteTop(parent);
+				containerOffset =parent.getAbsoluteTop();
 				break;
 			}
 			parent = DOM.getParent(parent);

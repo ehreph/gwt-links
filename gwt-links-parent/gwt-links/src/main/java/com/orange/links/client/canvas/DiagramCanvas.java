@@ -1,6 +1,7 @@
 package com.orange.links.client.canvas;
 
 import com.google.gwt.canvas.dom.client.CssColor;
+
 import com.google.gwt.event.dom.client.DomEvent;
 import com.google.gwt.event.shared.EventHandler;
 import com.google.gwt.event.shared.HandlerRegistration;

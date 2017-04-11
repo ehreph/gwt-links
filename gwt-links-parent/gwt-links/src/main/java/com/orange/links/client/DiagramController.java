@@ -9,6 +9,7 @@ import com.allen_sauer.gwt.dnd.client.DragController;
 import com.allen_sauer.gwt.dnd.client.DragEndEvent;
 import com.allen_sauer.gwt.dnd.client.DragHandlerAdapter;
 import com.allen_sauer.gwt.dnd.client.DragStartEvent;
+import com.google.gwt.canvas.client.Canvas;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.dom.client.NativeEvent;
 import com.google.gwt.dom.client.Style.Cursor;
@@ -18,6 +19,7 @@ import com.google.gwt.event.dom.client.MouseDownEvent;
 import com.google.gwt.event.dom.client.MouseDownHandler;
 import com.google.gwt.event.dom.client.MouseMoveEvent;
 import com.google.gwt.event.dom.client.MouseMoveHandler;
+import com.google.gwt.event.dom.client.MouseOverEvent;
 import com.google.gwt.event.dom.client.MouseOverHandler;
 import com.google.gwt.event.dom.client.MouseUpEvent;
 import com.google.gwt.event.dom.client.MouseUpHandler;
@@ -31,6 +33,7 @@ import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.ui.AbsolutePanel;
 import com.google.gwt.user.client.ui.MenuItem;
+import com.google.gwt.user.client.ui.PopupPanel;
 import com.google.gwt.user.client.ui.RootPanel;
 import com.google.gwt.user.client.ui.ScrollPanel;
 import com.google.gwt.user.client.ui.Widget;
@@ -64,6 +67,8 @@ import com.orange.links.client.shapes.FunctionShape;
 import com.orange.links.client.shapes.MouseShape;
 import com.orange.links.client.shapes.Point;
 import com.orange.links.client.shapes.Shape;
+import com.orange.links.client.utils.Couple;
+import com.orange.links.client.utils.Direction;
 import com.orange.links.client.utils.LinksClientBundle;
 import com.orange.links.client.utils.MovablePoint;
 
@@ -74,23 +79,24 @@ import com.orange.links.client.utils.MovablePoint;
  * @author David Durham (david.durham.jr@gmail.com)
  * 
  */
-public class DiagramController implements HasNewFunctionHandlers,
-											HasTieLinkHandlers, HasUntieLinkHandlers, HasChangeOnDiagramHandlers, HasContextMenu {
+public class DiagramController implements HasNewFunctionHandlers, HasTieLinkHandlers, HasUntieLinkHandlers,
+		HasChangeOnDiagramHandlers, HasContextMenu {
 
 	/**
-	 * If the distance between the mouse and segment is under this number in pixels, then,
-	 * the mouse is considered over the segment
+	 * If the distance between the mouse and segment is under this number in
+	 * pixels, then, the mouse is considered over the segment
 	 */
 	public static int minDistanceToSegment = 10;
 
 	/**
-	 * Timer refresh duration, in milliseconds. It defers if the application is running in development mode
-	 * or in the web mode
+	 * Timer refresh duration, in milliseconds. It defers if the application is
+	 * running in development mode or in the web mode
 	 */
 	public static int refreshRate = GWT.isScript() ? 25 : 50;
-	
+
 	private boolean allowingUserInteractions = true;
-	
+
+	protected Canvas canvas;
 	protected DiagramCanvas topCanvas;
 	protected DragController dragController;
 	protected BackgroundCanvas backgroundCanvas;
@@ -103,8 +109,8 @@ public class DiagramController implements HasNewFunctionHandlers,
 
 	protected DrawableSet<Connection> connections = new DrawableSet<Connection>();
 	protected DrawableSet<FunctionShape> shapes = new DrawableSet<FunctionShape>();
-	protected Map<Widget,FunctionShape> widgetShapeMap = new HashMap<Widget, FunctionShape>();
-	protected Map<Widget,Map<Widget,Connection>> functionsMap = new HashMap<Widget, Map<Widget, Connection>>();
+	protected Map<Widget, FunctionShape> widgetShapeMap = new HashMap<Widget, FunctionShape>();
+	protected Map<Widget, Map<Widget, Connection>> functionsMap = new HashMap<Widget, Map<Widget, Connection>>();
 
 	protected Point mousePoint = new Point(0, 0);
 	protected Point mouseOffsetPoint = new Point(0, 0);
@@ -115,6 +121,11 @@ public class DiagramController implements HasNewFunctionHandlers,
 	public boolean inDragBuildArrow = false;
 	public boolean inDragMovablePoint = false;
 	public boolean inDragWidget = false;
+	public boolean inEditionOverShapeToDrawConnection = false;
+
+	// highlight
+	public boolean highlightVisible = true;
+	public boolean highlightAll = false;
 
 	protected Point highlightPoint;
 	protected Connection highlightConnection;
@@ -133,7 +144,8 @@ public class DiagramController implements HasNewFunctionHandlers,
 	protected int canvasHeight;
 
 	/**
-	 * Initialize the controller diagram. Use this constructor to start your diagram. A code sample is : <br/>
+	 * Initialize the controller diagram. Use this constructor to start your
+	 * diagram. A code sample is : <br/>
 	 * <br/>
 	 * <code>
 	 * 		DiagramController controller = new DiagramController(400,400);<br/>
@@ -141,13 +153,14 @@ public class DiagramController implements HasNewFunctionHandlers,
 	 * </code> <br/>
 	 * 
 	 * @param canvas
-	 *            the implementation of the canvas where connections and widgets will be drawn
+	 *            the implementation of the canvas where connections and widgets
+	 *            will be drawn
 	 */
 	public DiagramController(int canvasWidth, int canvasHeight) {
 		this.canvasWidth = canvasWidth;
 		this.canvasHeight = canvasHeight;
-		this.topCanvas = new MultiBrowserDiagramCanvas(canvasWidth, canvasHeight);
-		this.backgroundCanvas = new BackgroundCanvas(canvasWidth, canvasHeight);
+		this.topCanvas = new MultiBrowserDiagramCanvas(canvasWidth, canvasHeight, Canvas.createIfSupported());
+		this.backgroundCanvas = new BackgroundCanvas(canvasWidth, canvasHeight, Canvas.createIfSupported());
 
 		handlerManager = new HandlerManager(topCanvas);
 		LinksClientBundle.INSTANCE.css().ensureInjected();
@@ -162,8 +175,8 @@ public class DiagramController implements HasNewFunctionHandlers,
 		ContextMenu.disableBrowserContextMenu(widgetPanel.asWidget().getElement());
 		ContextMenu.disableBrowserContextMenu(topCanvas.asWidget().getElement());
 	}
-	
-	public DiagramController(int canvasWidth, int canvasHeight, int frameWidth, int frameHeight){
+
+	public DiagramController(int canvasWidth, int canvasHeight, int frameWidth, int frameHeight) {
 		this(canvasWidth, canvasHeight);
 		scrollPanel = new ScrollPanel(getView());
 		scrollPanel.setWidth(frameWidth + "px");
@@ -205,9 +218,9 @@ public class DiagramController implements HasNewFunctionHandlers,
 		canvasMenu.addItem(new MenuItem("About", new Command() {
 			@Override
 			public void execute() {
-				Window.alert("http://gwt-links.googlecode.com/");
+				// Window.alert("http://gwt-links.googlecode.com/");
 			}
-		}));
+		}), true);
 	}
 
 	@Override
@@ -235,24 +248,24 @@ public class DiagramController implements HasNewFunctionHandlers,
 		buildConnection = null;
 
 		// Restart widgetPane
-		if(scrollPanel != null)
+		if (scrollPanel != null)
 			scrollPanel.clear();
 		widgetPanel.clear();
 		widgetPanel.add(topCanvas.asWidget());
 		topCanvas.getElement().getStyle().setPosition(Position.ABSOLUTE);
 		showGrid(showGrid);
 	}
-	
+
 	/**
 	 * Remove the drag controller
 	 */
-	public void removeDragController(){
+	public void removeDragController() {
 		dragController = null;
 	}
 
 	/**
-	 * Draw a straight connection with an arrow between two GWT widgets.
-	 * The arrow is pointing to the second widget
+	 * Draw a straight connection with an arrow between two GWT widgets. The
+	 * arrow is pointing to the second widget
 	 * 
 	 * @param startWidget
 	 *            Start widget
@@ -274,7 +287,7 @@ public class DiagramController implements HasNewFunctionHandlers,
 
 	protected <C extends Connection> C drawConnection(ConnectionFactory<C> cf, Shape start, Shape end) {
 		// Create Connection and Store it in the controller
-		C c = cf.create(this,start, end);
+		C c = cf.create(this, start, end);
 		c.setController(this);
 
 		connections.add(c);
@@ -285,7 +298,8 @@ public class DiagramController implements HasNewFunctionHandlers,
 	}
 
 	/**
-	 * Draw a straight connection between two GWT widgets. The arrow is pointing to the second widget
+	 * Draw a straight connection between two GWT widgets. The arrow is pointing
+	 * to the second widget
 	 * 
 	 * @param startWidget
 	 *            Start widget
@@ -310,7 +324,7 @@ public class DiagramController implements HasNewFunctionHandlers,
 	 *            top margin with the absolute panel
 	 */
 	public FunctionShape addWidget(final Widget w, int left, int top) {
-		
+
 		w.getElement().getStyle().setZIndex(3);
 		final FunctionShape shape = new FunctionShape(this, w);
 
@@ -328,10 +342,11 @@ public class DiagramController implements HasNewFunctionHandlers,
 				}
 			}, MouseUpEvent.getType());
 		}
+
 		widgetPanel.add(w, left, top);
 
 		// Register the drag handler
-		if(dragController != null){
+		if (dragController != null) {
 			registerDragHandler(shape);
 		}
 
@@ -345,10 +360,10 @@ public class DiagramController implements HasNewFunctionHandlers,
 			}
 		}, com.google.gwt.event.dom.client.MouseOverEvent.getType());
 		shape.draw();
-		
+
 		// Send event
 		handlerManager.fireEvent(new NewFunctionEvent(w));
-        return shape;
+		return shape;
 	}
 
 	public FunctionShape addWidgetAtMousePoint(final Widget w) {
@@ -367,6 +382,10 @@ public class DiagramController implements HasNewFunctionHandlers,
 		decoration.getElement().getStyle().setZIndex(10);
 		decoration.getElement().getStyle().setPosition(Position.ABSOLUTE);
 		widgetPanel.add(decoration);
+		widgetPanel.setTitle(decoration.getTitle());
+
+//		 widgetPanel.setWidgetPosition(widgetPanel,
+//				 widgetPanel.getAbsoluteLeft(), widgetPanel.getAbsoluteTop()-15);
 		decoratedConnection.setDecoration(new DecorationShape(this, decoration));
 		decoratedConnection.setSynchronized(false);
 	}
@@ -431,16 +450,16 @@ public class DiagramController implements HasNewFunctionHandlers,
 	public AbsolutePanel getView() {
 		return widgetPanel;
 	}
-	
-	public void setFrameSize(int width, int height){
-		if(scrollPanel == null){
+
+	public void setFrameSize(int width, int height) {
+		if (scrollPanel == null) {
 			scrollPanel = new ScrollPanel(widgetPanel);
 		}
 		scrollPanel.setWidth(width + "px");
 		scrollPanel.setHeight(height + "px");
 	}
-	
-	public ScrollPanel getViewAsScrollPanel(){
+
+	public ScrollPanel getViewAsScrollPanel() {
 		scrollPanel.addScrollHandler(new ScrollHandler() {
 			@Override
 			public void onScroll(ScrollEvent event) {
@@ -458,16 +477,16 @@ public class DiagramController implements HasNewFunctionHandlers,
 	 */
 	public void registerDragController(DragController dragController) {
 		this.dragController = dragController;
-		for(FunctionShape shape : shapes){
+		for (FunctionShape shape : shapes) {
 			registerDragHandler(shape);
 		}
 	}
 
-	protected void registerDragHandler(final FunctionShape shape){
+	protected void registerDragHandler(final FunctionShape shape) {
 		this.dragController.addDragHandler(new DragHandlerAdapter() {
 
 			@Override
-			public void onPreviewDragEnd(DragEndEvent event){
+			public void onPreviewDragEnd(DragEndEvent event) {
 				shape.getConnections().draw();
 			}
 
@@ -476,7 +495,7 @@ public class DiagramController implements HasNewFunctionHandlers,
 				inDragWidget = false;
 				Widget widget = event.getContext().draggable;
 				Shape s = widgetShapeMap.get(widget);
-				if(shape.equals(s)){
+				if (shape.equals(s)) {
 					shape.setSynchronized(true);
 					shape.getConnections().setAllowSynchronized(true);
 					shape.getConnections().setSynchronized(true);
@@ -488,7 +507,7 @@ public class DiagramController implements HasNewFunctionHandlers,
 				inDragWidget = true;
 				Widget widget = event.getContext().draggable;
 				Shape s = widgetShapeMap.get(widget);
-				if(shape.equals(s)){
+				if (shape.equals(s)) {
 					shape.setSynchronized(false);
 					shape.getConnections().setSynchronized(false);
 					shape.getConnections().setAllowSynchronized(false);
@@ -496,16 +515,16 @@ public class DiagramController implements HasNewFunctionHandlers,
 			}
 		});
 	}
-	
-	public void unsynchronizedShapes(){
-		for(FunctionShape shape : shapes){
+
+	public void unsynchronizedShapes() {
+		for (FunctionShape shape : shapes) {
 			shape.setSynchronized(false);
 			shape.getConnections().setSynchronized(false);
 		}
 	}
-	
-	public void synchronizedShapes(){
-		for(FunctionShape shape : shapes){
+
+	public void synchronizedShapes() {
+		for (FunctionShape shape : shapes) {
 			shape.setSynchronized(true);
 			shape.getConnections().setSynchronized(true);
 		}
@@ -530,7 +549,6 @@ public class DiagramController implements HasNewFunctionHandlers,
 	public HandlerRegistration addChangeOnDiagramHandler(ChangeOnDiagramHandler handler) {
 		return handlerManager.addHandler(ChangeOnDiagramEvent.getType(), handler);
 	}
-	
 
 	@Override
 	public HandlerRegistration addNewFunctionHandler(NewFunctionHandler handler) {
@@ -564,13 +582,11 @@ public class DiagramController implements HasNewFunctionHandlers,
 		}
 	};
 
-
-
 	public void update() {
 		redrawConnections();
 
 		// If the user is dragging widgets, do nothing
-		if(inDragWidget)
+		if (inDragWidget)
 			return;
 
 		topCanvas.clear();
@@ -578,8 +594,21 @@ public class DiagramController implements HasNewFunctionHandlers,
 		// Search for selectable area
 		if (!inDragBuildArrow) {
 			for (FunctionShape s : shapes) {
-				if (s.isMouseNearSelectableArea(mousePoint)) {
-					s.highlightSelectableArea(mousePoint);
+
+				if (highlightAll && !inDragWidget) {
+					if (s.isMouseOverShape(mouseOffsetPoint)) {
+						if (highlightVisible) {
+							s.highlightArea();
+						}
+						inEditionSelectableShapeToDrawConnection = true;
+						startFunctionWidget = s.asWidget();
+						RootPanel.getBodyElement().getStyle().setCursor(Cursor.POINTER);
+						return;
+					}
+				} else if (s.isMouseNearSelectableArea(mousePoint)) {
+					if (highlightVisible) {
+						s.highlightSelectableArea(mousePoint);
+					}
 					inEditionSelectableShapeToDrawConnection = true;
 					startFunctionWidget = s.asWidget();
 					RootPanel.getBodyElement().getStyle().setCursor(Cursor.POINTER);
@@ -587,15 +616,17 @@ public class DiagramController implements HasNewFunctionHandlers,
 				}
 				inEditionSelectableShapeToDrawConnection = false;
 			}
+
 		} else {
+
 			// Don't go deeper if in edition mode
 			// If mouse over a widget, highlight it
 			FunctionShape s = getShapeUnderMouse();
 			if (s != null) {
+
 				s.drawHighlight();
 				highlightFunctionShape = s;
-			}
-			else if(highlightFunctionShape != null) {
+			} else if (highlightFunctionShape != null) {
 				highlightFunctionShape.draw();
 				highlightFunctionShape = null;
 			}
@@ -605,12 +636,30 @@ public class DiagramController implements HasNewFunctionHandlers,
 		// Test if in Drag Movable Point
 		if (!inDragMovablePoint && !inDragBuildArrow) {
 			for (Connection c : connections) {
+
 				if (c.isMouseNearConnection(mousePoint)) {
 					highlightPoint = c.highlightMovablePoint(mousePoint);
 					highlightConnection = getConnectionNearMouse();
+					if (c.getDecoration() != null) {
+						if (c.getDecoration().asWidget() instanceof PopupPanel) {
+							PopupPanel tooltip = (PopupPanel) c.getDecoration().asWidget();
+							//show popup over mouse
+//							if(!tooltip.isVisible()){
+//								tooltip.setPopupPosition(mousePoint.getLeft(),mousePoint.getTop());								
+//							}
+							tooltip.setVisible(true);
+						}
+					}
+
 					inEditionDragMovablePoint = true;
 					RootPanel.getBodyElement().getStyle().setCursor(Cursor.POINTER);
 					return;
+				}
+				if (c.getDecoration() != null) {
+					if (c.getDecoration().asWidget() instanceof PopupPanel) {
+						PopupPanel tooltip = (PopupPanel) c.getDecoration().asWidget();
+						tooltip.setVisible(false);
+					}
 				}
 				inEditionDragMovablePoint = false;
 			}
@@ -620,7 +669,8 @@ public class DiagramController implements HasNewFunctionHandlers,
 	}
 
 	/**
-	 * If any connections need to be redrawn, clear the canvas and redraw all lines.
+	 * If any connections need to be redrawn, clear the canvas and redraw all
+	 * lines.
 	 */
 	protected void redrawConnections() {
 		connections.getUnsynchronizedDrawables().draw();
@@ -653,10 +703,10 @@ public class DiagramController implements HasNewFunctionHandlers,
 	}
 
 	protected void onMouseMove(MouseMoveEvent event) {
-		if(!isAllowingUserInteractions()){
+		if (!isAllowingUserInteractions()) {
 			return;
 		}
-		
+
 		int mouseX = event.getRelativeX(topCanvas.getElement());
 		int mouseY = event.getRelativeY(topCanvas.getElement());
 		mousePoint.setLeft(mouseX);
@@ -669,10 +719,10 @@ public class DiagramController implements HasNewFunctionHandlers,
 	}
 
 	protected void onMouseUp(MouseUpEvent event) {
-		if(!isAllowingUserInteractions()){
+		if (!isAllowingUserInteractions()) {
 			return;
 		}
-		
+
 		// Test if Right Click
 		if (event.getNativeButton() == NativeEvent.BUTTON_RIGHT) {
 			event.stopPropagation();
@@ -693,7 +743,7 @@ public class DiagramController implements HasNewFunctionHandlers,
 			FunctionShape functionUnderMouse = getShapeUnderMouse();
 			if (functionUnderMouse != null) {
 				Widget widgetSelected = functionUnderMouse.asWidget();
-				if(startFunctionWidget != widgetSelected){
+				if (startFunctionWidget != widgetSelected) {
 					Connection c = drawStraightArrowConnection(startFunctionWidget, widgetSelected);
 					fireEvent(new TieLinkEvent(startFunctionWidget, widgetSelected, c));
 				}
@@ -702,7 +752,7 @@ public class DiagramController implements HasNewFunctionHandlers,
 			deleteConnection(buildConnection);
 			inDragBuildArrow = false;
 			buildConnection = null;
-			if(highlightFunctionShape != null){
+			if (highlightFunctionShape != null) {
 				highlightFunctionShape.draw();
 				highlightFunctionShape = null;
 			}
@@ -716,16 +766,17 @@ public class DiagramController implements HasNewFunctionHandlers,
 	}
 
 	protected void onMouseDown(MouseDownEvent event) {
-		if(!isAllowingUserInteractions()){
+		if (!isAllowingUserInteractions()) {
 			return;
 		}
-		
+
 		// Test if Right Click
 		if (event.getNativeButton() == NativeEvent.BUTTON_RIGHT) {
 			return;
 		}
 
 		if (inEditionSelectableShapeToDrawConnection) {
+			RootPanel.getBodyElement().getStyle().setCursor(Cursor.POINTER);
 			inDragBuildArrow = true;
 			inEditionSelectableShapeToDrawConnection = false;
 			drawBuildArrow(startFunctionWidget, mousePoint);
@@ -751,8 +802,8 @@ public class DiagramController implements HasNewFunctionHandlers,
 
 	public void deleteConnection(Connection c) {
 		connections.remove(c);
-		for (Map<Widget,Connection> entry : functionsMap.values()) {
-			for(Iterator<Connection> it = entry.values().iterator(); it.hasNext(); ){
+		for (Map<Widget, Connection> entry : functionsMap.values()) {
+			for (Iterator<Connection> it = entry.values().iterator(); it.hasNext();) {
 				Connection connection = it.next();
 				if (connection.equals(c)) {
 					it.remove();
@@ -763,20 +814,21 @@ public class DiagramController implements HasNewFunctionHandlers,
 		c.delete();
 		removeDecoration(c);
 	}
-	
+
 	public void deleteWidget(Widget widget) {
-	    FunctionShape shape = widgetShapeMap.get(widget);
-	    shapes.remove(shape);
+		FunctionShape shape = widgetShapeMap.get(widget);
+		shapes.remove(shape);
 		functionsMap.remove(widget);
-	    for (Connection connection : shape.getConnections()) {
-	        deleteConnection(connection);
-	    }
-	    widgetPanel.remove(widget);
+		for (Connection connection : shape.getConnections()) {
+			deleteConnection(connection);
+		}
+		widgetPanel.remove(widget);
 	}
 
 	protected Connection getConnectionNearMouse() {
 		for (Connection c : connections) {
 			if (c.isMouseNearConnection(mousePoint)) {
+
 				return c;
 			}
 		}
@@ -830,7 +882,7 @@ public class DiagramController implements HasNewFunctionHandlers,
 	 * 
 	 * @return unsynchronized connection
 	 */
-	public DrawableSet<Connection> getUnsynchronizedConnections(){
+	public DrawableSet<Connection> getUnsynchronizedConnections() {
 		return connections.getUnsynchronizedDrawables();
 	}
 
@@ -838,73 +890,71 @@ public class DiagramController implements HasNewFunctionHandlers,
 	 * 
 	 * 
 	 */
-	public DiagramModel getDiagramModel(){
+	public DiagramModel getDiagramModel() {
 		DiagramModel diagramRepresentation = new DiagramModel();
-		diagramRepresentation.setDiagramProperties(this.canvasWidth,
-				this.canvasHeight,this.showGrid);
+		diagramRepresentation.setDiagramProperties(this.canvasWidth, this.canvasHeight, this.showGrid);
 
 		// Add function
-		for(Widget startWidget : functionsMap.keySet()){
+		for (Widget startWidget : functionsMap.keySet()) {
 			diagramRepresentation.addFunction(startWidget);
 		}
 
 		// Add links
-		for(Widget startWidget : functionsMap.keySet()){
-			for(Widget endWidget : functionsMap.get(startWidget).keySet()){
+		for (Widget startWidget : functionsMap.keySet()) {
+			for (Widget endWidget : functionsMap.get(startWidget).keySet()) {
 				Connection c = functionsMap.get(startWidget).get(endWidget);
 				int[][] pointList = new int[c.getMovablePoints().size()][2];
 				int i = 0;
-				for(com.orange.links.client.shapes.Point p : c.getMovablePoints()){
-					int[] point = {p.getLeft(), p.getTop()};
+				for (com.orange.links.client.shapes.Point p : c.getMovablePoints()) {
+					int[] point = { p.getLeft(), p.getTop() };
 					pointList[i] = point;
 					i++;
 				}
-				diagramRepresentation.addLink(startWidget, endWidget,pointList,c);
+				diagramRepresentation.addLink(startWidget, endWidget, pointList, c);
 			}
 		}
 		return diagramRepresentation;
 	}
-	
-	public String exportDiagram(){
+
+	public String exportDiagram() {
 		return DiagramSerializationService.exportDiagram(getDiagramModel());
 	}
-	
-	public void importDiagram(String diagramXmlExport, DiagramWidgetFactory saveFactory){
+
+	public void importDiagram(String diagramXmlExport, DiagramWidgetFactory saveFactory) {
 		DiagramModel diagramRepresentation = DiagramSerializationService.importDiagram(diagramXmlExport);
 		// Display the converted graphical representation
 		clearDiagram();
 		// Add Functions
-		Map<String,Widget> idToWidgetMap = new HashMap<String,Widget>();
-		for(FunctionModel function : diagramRepresentation.getFunctionRepresentationSet()){
+		Map<String, Widget> idToWidgetMap = new HashMap<String, Widget>();
+		for (FunctionModel function : diagramRepresentation.getFunctionRepresentationSet()) {
 			Widget w = saveFactory.getFunctionByType(function.identifier, function.content);
-			addWidget(w, function.left, function.top);
+			int f=w.getOffsetWidth();
+			addWidget(w, function.left-w.getOffsetWidth(), function.top-w.getOffsetHeight());
 			idToWidgetMap.put(function.id, w);
 		}
 		// Add links
-		for(LinkModel link : diagramRepresentation.getLinkRepresentationSet()){
+		for (LinkModel link : diagramRepresentation.getLinkRepresentationSet()) {
 			Widget w1 = idToWidgetMap.get(link.startId);
 			Widget w2 = idToWidgetMap.get(link.endId);
 			Connection c;
-			if(link.type != null && link.type.equals("straight")){
+			if (link.type != null && link.type.equals("straight")) {
 				c = drawStraightConnection(w1, w2);
 			} else {
 				c = drawStraightArrowConnection(w1, w2);
 			}
-			if(link.decoration != null){
-				addDecoration(saveFactory.getDecorationByType(
-						link.decoration.identifier , link.decoration.content ), c);
-			} 
-			
-			// Add the movable points
-			for(int[] p : link.pointList){
-				c.addMovablePoint(new com.orange.links.client.shapes.Point(p[0],p[1]));
+			if (link.decoration != null) {
+				addDecoration(saveFactory.getDecorationByType(link.decoration.identifier, link.decoration.content), c);
 			}
-			
+
+			// Add the movable points
+			for (int[] p : link.pointList) {
+				c.addMovablePoint(new com.orange.links.client.shapes.Point(p[0], p[1]));
+			}
+
 			// Fire TieEvent
 			handlerManager.fireEvent(new TieLinkEvent(w1, w2, c));
 		}
 	}
-	
 
 	public boolean isAllowingUserInteractions() {
 		return allowingUserInteractions;
@@ -912,10 +962,26 @@ public class DiagramController implements HasNewFunctionHandlers,
 
 	public void setAllowingUserInteractions(boolean allowingUserInteractions) {
 		this.allowingUserInteractions = allowingUserInteractions;
-		if(!allowingUserInteractions){
+		if (!allowingUserInteractions) {
 			removeDragController();
 		}
 	}
 
+	public void setHighlightVisible(boolean highlightVisible) {
+		this.highlightVisible = highlightVisible;
+	}
+
+	public boolean isHighlightVisible() {
+		return highlightVisible;
+	}
+
+	public boolean isHighlightAll() {
+		return highlightAll;
+	}
+
+	public void setHighlightAll(boolean highlightAll) {
+
+		this.highlightAll = highlightAll;
+	}
 
 }

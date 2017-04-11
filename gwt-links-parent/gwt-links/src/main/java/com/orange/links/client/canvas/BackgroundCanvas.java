@@ -1,11 +1,13 @@
 package com.orange.links.client.canvas;
 
+import com.google.gwt.canvas.client.Canvas;
+
 public class BackgroundCanvas extends MultiBrowserDiagramCanvas{
 
 	private final int cellSize = 10;
 
-	public BackgroundCanvas(int width, int height) {
-		super(width, height);
+	public BackgroundCanvas(int width, int height, Canvas canvas) {
+		super(width, height ,canvas);
 		getElement().getStyle().setZIndex(0);
 		initGrid();
 	}

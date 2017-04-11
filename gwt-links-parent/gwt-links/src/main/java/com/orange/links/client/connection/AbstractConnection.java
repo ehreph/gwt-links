@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.google.gwt.canvas.client.Canvas;
 import com.google.gwt.canvas.dom.client.CssColor;
 import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.user.client.Command;
@@ -60,7 +61,7 @@ public abstract class AbstractConnection implements Connection {
 		initMenu();
 
 		setController(controller);
-		canvas = new ConnectionCanvas(controller.getCanvasWidth(), controller.getCanvasHeight());
+		canvas = new ConnectionCanvas(controller.getCanvasWidth(), controller.getCanvasHeight(), Canvas.createIfSupported());
 		this.controller.getView().add(canvas.asWidget());
 	}
 
@@ -81,14 +82,14 @@ public abstract class AbstractConnection implements Connection {
 				endShape.removeConnection(AbstractConnection.this);
 				menu.hide();
 			}
-		}));
+		}), true);
 
 		menu.addItem(new MenuItem(straightenMenuText, true, new Command() {
 			public void execute() {
 				setStraight();
 				menu.hide();
 			}
-		}));
+		}),true);
 	}
 
 	protected abstract void draw(Point p1, Point p2, boolean lastPoint);

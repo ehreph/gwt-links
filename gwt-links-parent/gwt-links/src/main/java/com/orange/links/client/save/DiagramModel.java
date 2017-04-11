@@ -42,8 +42,12 @@ public class DiagramModel implements IsSerializable{
 	public void addFunction(Widget functionWidget){
 		FunctionModel function = new FunctionModel();
 		function.id = ++id + "";
-		function.top = WidgetUtils.getTop(functionWidget);
-		function.left = WidgetUtils.getLeft(functionWidget);
+		
+		function.top= functionWidget.getAbsoluteTop();
+		function.left= functionWidget.getAbsoluteLeft();
+//		function.top = WidgetUtils.getTop(functionWidget);
+//		function.left = WidgetUtils.getLeft(functionWidget);
+		
 		try{
 			function.content = ((IsDiagramSerializable) functionWidget).getContentRepresentation();
 			function.identifier = ((IsDiagramSerializable) functionWidget).getType();
